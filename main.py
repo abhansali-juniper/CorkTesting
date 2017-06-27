@@ -111,6 +111,63 @@ def list_users():
 # End of list_users
 
 
+# Create user
+@post('/create_user')
+def create_user():
+    # Require admin role
+    backend.require(role='admin', fixed_role=True,
+                    fail_redirect='/insufficient_perms')
+
+    # Get params from form
+    username = post_get('username')
+    role = post_get('role')
+    email = post_get('email')
+    password = post_get('password')
+
+    # If user already exists, stop
+    if backend.user(username) is not None:
+        return 'Failed: user ' + username + ' already exists.'
+
+    # Ensure role exists
+    valid_role = False
+    for curr_role in backend.list_roles():
+        if role == curr_role[0]:
+            valid_role = True
+            break
+    if not valid_role:
+        return 'Failed: ' + role + ' is not a valid role.'
+
+    # Create user
+    backend.create_user(username=username, role=role, email_addr=email,
+                        password=password)
+    return 'Success.'
+# End of create_user
+
+
+# Delete user
+@post('/delete_user')
+def delete_user():
+    # Require admin role
+    backend.require(role='admin', fixed_role=True,
+                    fail_redirect='/insufficient_perms')
+
+    # Get params from form
+    username = post_get('username')
+
+    # Do not allow deleting original admin user
+    if username == 'admin':
+        return 'Failed: unable to delete original admin user.'
+
+    # If user does not exist, stop
+    if backend.user(username) is None:
+        return 'Failed: user ' + username + ' does not exist.'
+
+    # Delete user
+    backend.delete_user(username)
+    return 'Success.'
+# End of delete_user
+
+
 # Static pages
 # Static Login Page
 @route('/login')
@@ -127,6 +184,40 @@ def login_page():
 def insufficient_perms_page():
     return "Insufficient permissions"
 # End of insufficient_perms_page
+
+
+# Static Create User Page
+@route('/create_user')
+def create_user_page():
+    backend.require(role='admin', fixed_role=True,
+                    fail_redirect='/insufficient_perms')
+    return '<form action="/create_user" method="post">' \
+           '    <label for="username">Username: </label>' \
+           '    <input type="text" id="username" name="username">' \
+           '    <br>' \
+           '    <label for="role">Role: </label>' \
+           '    <input type="text" id="role" name="role">' \
+           '    <br>' \
+           '    <label for="email">Email: </label>' \
+           '    <input type="text" id="email" name="email">' \
+           '    <br>' \
+           '    <label for="password">Password: </label>' \
+           '    <input type="password" id="password" name="password">' \
+           '    <br>' \
+           '    <input type="submit" value="Create">'
+# End of create_user_page
+
+
+# Static Delete User Page
+@route('/delete_user')
+def delete_user_page():
+    backend.require(role='admin', fixed_role=True,
+                    fail_redirect='/insufficient_perms')
+    return '<form action="/delete_user" method="post">' \
+           '    <label for="username">Username: </label>' \
+           '    <input type="text" id="username" name="username">' \
+           '    <br>' \
+           '    <input type="submit" value="Delete">'
 
 
 # Main function
