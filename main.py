@@ -86,11 +86,19 @@ def logout():
 
 
 # List roles
-@route('/list_roles')
+@route('/role')
 def list_roles():
     backend.require(role='admin', fixed_role=True,
                     fail_redirect='/insufficient_perms')
-    return dict(backend.list_roles())
+    # Build dictionary
+    l = []
+    for role in backend.list_roles():
+        role_dict = {
+            'id': role[0],
+            'level': role[1]
+         }
+        l.append(role_dict)
+    return {'role': l}
 # End of list_roles
 
 
