@@ -92,22 +92,23 @@ def list_roles():
 
 
 # List users
-@route('/list_users')
+@route('/user')
 def list_users():
     backend.require(role='admin', fixed_role=True,
                     fail_redirect='/insufficient_perms')
 
     # Build dictionary
     generator = backend.list_users()
-    d = {}
+    l = []
     for user in generator:
-        d[user[0]] = {
+        user_dict = {
+            'id': user[0],
             'role': user[1],
             'email': user[2],
             'desc': user[3]
         }
-
-    return d
+        l.append(user_dict)
+    return {'user': l}
 # End of list_users
 
 
