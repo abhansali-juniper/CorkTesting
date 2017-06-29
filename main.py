@@ -7,10 +7,11 @@ import bottle
 from bottle import post, request, route, run
 from beaker.middleware import SessionMiddleware
 from cork import Cork
-from cork.backends import JsonBackend
+from cork.backends import SQLiteBackend
+
 
 # Globals
-jb = None
+sqliteBackend = None
 backend = None
 app = None
 
@@ -18,11 +19,14 @@ app = None
 # Set up
 def setup():
     # JSON backend for now
-    global jb
-    jb = JsonBackend(directory='.', users_fname='users', roles_fname='roles',
-                     initialize=False)
+    global sqliteBackend
+    sqliteBackend = SQLiteBackend(filename='SQLiteDB.db',
+                                  users_tname='user_table',
+                                  roles_tname='role_table',
+                                  pending_reg_tname='register_table',
+                                  initialize=False)
     global backend
-    backend = Cork(directory='.')
+    backend = Cork(backend=sqliteBackend)
 
     # Session
     global app
@@ -54,7 +58,6 @@ def home():
 def login():
     username = post_get('username')
     password = post_get('password')
-    stderr.write('username:\t' + username + '\npassword:\t' + password + '\n')
     backend.login(username=username, password=password,
                   success_redirect='/login_success',
                   fail_redirect='/login_failed')
@@ -90,6 +93,31 @@ def list_roles():
     return dict(backend.list_roles())
 # End of list_roles
 
+
+# Create role
+@post('/create_role')
+def create_role():
+    # Require admin role
+    backend.require(role='admin', fixed_role=True,
+                    fail_redirect='/insufficient_perms')
+
+    # Get params from form
+    role = post_get('role')
+    level = post_get('level')
+
+    # If role already exists, stop
+    exists = False
+    for curr_role in backend.list_roles():
+        if role == curr_role[0]:
+            exists = True
+            break
+    if exists:
+        return 'Failed: role ' + role + ' already exists.'
+
+    # Create user
+    backend.create_role(role, level)
+    sqliteBackend.connection.commit()
+    return 'Success.'
 
 # List users
 @route('/user')
@@ -141,6 +169,7 @@ def create_user():
     # Create user
     backend.create_user(username=username, role=role, email_addr=email,
                         password=password)
+    sqliteBackend.connection.commit()
     return 'Success.'
 # End of create_user
 
@@ -165,6 +194,7 @@ def delete_user():
 
     # Delete user
     backend.delete_user(username)
+    sqliteBackend.connection.commit()
     return 'Success.'
 # End of delete_user
 
@@ -185,6 +215,22 @@ def login_page():
 def insufficient_perms_page():
     return "Insufficient permissions"
 # End of insufficient_perms_page
+
+
+# Static Create Role Page
+@route('/create_role')
+def create_role_page():
+    backend.require(role='admin', fixed_role=True,
+                    fail_redirect='/insufficient_perms')
+    return '<form action="/create_role" method="post">' \
+           '    <label for="role">Role: </label>' \
+           '    <input type="text" id="role" name="role">' \
+           '    <br>' \
+           '    <label for="level">Level: </label>' \
+           '    <input type="text" id="level" name="level">' \
+           '    <br>' \
+           '    <input type="submit" value="Create">'
+# End of create_user_page
 
 
 # Static Create User Page
